@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FireForge - FI Calculator</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ==========================================================================
+           ZONE 1: THEME & STYLING - FINANCE AESTHETIC
+           ========================================================================== */
+        :root {
+            /* Emerald Green & Gold Finance Theme */
+            --primary: #059669;       /* Emerald Green - Growth/Wealth */
+            --primary-light: #10b981; /* Lighter green for gradients */
+            --primary-dark: #047857;  /* Darker green for contrast */
+            --secondary: #f59e0b;     /* Gold - Accent/Returns */
+            
+            /* Structural Colors */
+            --danger: #dc2626;
+            --warning: #d97706;
+            --dark-text: #1e293b;
+            --bg-gradient-start: #f0fdf4;
+            --bg-gradient-end: #dcfce7;
+            --card-bg: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --radius: 12px;
+        }
+
+        /* --- CORE ENGINE CSS (Do not touch unless you want to change layout) --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end)); color: var(--dark-text); padding-bottom: 80px; min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+        
+        /* Header */
+        .header { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; padding: 16px; text-align: center; position: sticky; top: 0; z-index: 1000; box-shadow: var(--shadow); }
+        .header h1 { font-size: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        
+        /* Tab Nav */
+        .tab-nav { background: white; position: sticky; top: 70px; z-index: 999; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow-x: auto; }
+        .tab-buttons { display: flex; min-width: 100%; }
+        .tab-btn { flex: 1; padding: 12px; border: none; background: none; border-bottom: 3px solid transparent; font-weight: 600; color: #64748b; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 0.8rem; }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(5, 150, 105, 0.05); }
+        .tab-content { display: none; padding: 20px 0; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Cards & Inputs */
+        .card { background: var(--card-bg); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); }
+        .card-header h3 { color: var(--primary-dark); display: flex; align-items: center; gap: 8px; font-size: 1.1rem; margin-bottom: 15px; }
+        
+        /* Range Sliders */
+        .slider-group { margin-bottom: 20px; }
+        .slider-label { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500; }
+        .slider-val { background: #f1f5f9; padding: 4px 12px; border-radius: 12px; color: var(--primary); font-weight: 700; font-size: 0.9rem; }
+        input[type=range] { width: 100%; height: 6px; background: #cbd5e1; border-radius: 3px; outline: none; -webkit-appearance: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; background: var(--primary); border-radius: 50%; cursor: pointer; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+        /* Toggles & Radios */
+        .radio-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .radio-btn { padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .radio-btn.selected { border-color: var(--primary); background: rgba(5, 150, 105, 0.1); color: var(--primary-dark); font-weight: 600; }
+        
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+        .toggle-switch { position: relative; width: 44px; height: 24px; background: #cbd5e1; border-radius: 12px; transition: 0.3s; cursor: pointer; }
+        .toggle-switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: 0.3s; }
+        input:checked + .toggle-switch { background: var(--secondary); }
+        input:checked + .toggle-switch::after { transform: translateX(20px); }
+
+        /* Metrics Grid */
+        .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+        .metric-box { background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
+        .metric-val { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+        .metric-lbl { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
+
+        /* Items Grid (Monthly Contributions/Costs) */
+        .item-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .item-card { background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .item-card:active { transform: scale(0.95); border-color: var(--primary); }
+        .item-icon { font-size: 1.5rem; margin-bottom: 5px; }
+
+        /* Progress Bars */
+        .prog-bar-container { margin-bottom: 15px; }
+        .prog-label { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9rem; font-weight: 500; }
+        .prog-bg { height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden; }
+        .prog-fill { height: 100%; background: var(--secondary); transition: width 0.5s; }
+        .prog-fill.high { background: var(--danger); }
+        .prog-fill.med { background: var(--warning); }
+
+        /* Chart */
+        #chart-container { width: 100%; height: 350px; overflow: hidden; border-radius: 8px; }
+        
+        /* Currency formatting */
+        .currency::before { content: '$'; }
+        .positive { color: var(--primary); }
+        .negative { color: var(--danger); }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1><i class="fas fa-fire"></i> FireForge</h1>
+        <div style="font-size: 0.8rem; opacity: 0.9;">Financial Independence Calculator</div>
+    </div>
+
+    <div class="tab-nav">
+        <div class="tab-buttons">
+            <button class="tab-btn active" onclick="switchTab('tab-calc', this)">
+                <i class="fas fa-calculator"></i> Calculator
+            </button>
+            <button class="tab-btn" onclick="switchTab('tab-items', this)">
+                <i class="fas fa-plus-circle"></i> Lifestyle
+            </button>
+            <button class="tab-btn" onclick="switchTab('tab-data', this)">
+                <i class="fas fa-chart-pie"></i> Analysis
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        
+        <div id="tab-calc" class="tab-content active">
+            
+            <div class="card">
+                <div id="chart-container"></div>
+            </div>
+
+            <div class="card">
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-val currency" id="disp-metric-1">0</div>
+                        <div class="metric-lbl">Portfolio Value</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-val" id="disp-metric-2">0%</div>
+                        <div class="metric-lbl">Annual Return</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h3><i class="fas fa-sliders-h"></i> Financial Parameters</h3></div>
+                
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Initial Savings ($)</span>
+                        <span class="slider-val currency" id="val-varA">50,000</span>
+                    </div>
+                    <input type="range" id="input-varA" min="0" max="100000" step="1000" value="50000" oninput="updateEngine()">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Annual Return (%)</span>
+                        <span class="slider-val" id="val-varB">7.0</span>
+                    </div>
+                    <input type="range" id="input-varB" min="1.0" max="15.0" step="0.1" value="7.0" oninput="updateEngine()">
+                </div>
+
+                <div class="radio-group">
+                    <div class="radio-btn selected" onclick="setMode('low', this)">Conservative</div>
+                    <div class="radio-btn" onclick="setMode('med', this)">Balanced</div>
+                    <div class="radio-btn" onclick="setMode('high', this)">Aggressive</div>
+                </div>
+
+                <div class="toggle-row">
+                    <span><i class="fas fa-redo"></i> Reinvest Dividends</span>
+                    <label>
+                        <input type="checkbox" id="toggle-turbo" onchange="updateEngine()" style="display:none;">
+                        <div class="toggle-switch"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-items" class="tab-content">
+            <div class="card">
+                <div class="card-header"><h3><i class="fas fa-list"></i> Monthly Contributions/Costs</h3></div>
+                <div class="item-grid" id="preset-grid">
+                    <!-- Items will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Active Monthly Adjustments</h3></div>
+                <div id="active-stack-list" style="color: #64748b; text-align: center; padding: 20px;">
+                    No adjustments added yet.
+                </div>
+                <button onclick="clearStack()" style="width:100%; padding:12px; background:var(--danger); color:white; border:none; border-radius:8px; margin-top:10px;">Clear All</button>
+            </div>
+        </div>
+
+        <div id="tab-data" class="tab-content">
+            <div class="card">
+                <div class="card-header"><h3><i class="fas fa-tachometer-alt"></i> FI Assessment</h3></div>
+                
+                <div class="prog-bar-container">
+                    <div class="prog-label">
+                        <span>Time to FI (Years)</span>
+                        <span id="lbl-risk">0</span>
+                    </div>
+                    <div class="prog-bg"><div class="prog-fill" id="bar-risk" style="width: 0%"></div></div>
+                </div>
+
+                <div class="prog-bar-container">
+                    <div class="prog-label">
+                        <span>Retirement Readiness</span>
+                        <span id="lbl-sust">0%</span>
+                    </div>
+                    <div class="prog-bg"><div class="prog-fill" id="bar-sust" style="width: 0%"></div></div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header"><h3><i class="fas fa-lightbulb"></i> Financial Recommendations</h3></div>
+                <div id="recommendation-text" style="font-size: 0.9rem; line-height: 1.6;">
+                    Adjust inputs to generate recommendations.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION: Define Financial Items and Defaults ---
+        const config = {
+            mode: 'low', // default mode
+            presets: [
+                { id: 1, name: 'Side Hustle', value: 500, icon: '💸' },
+                { id: 2, name: 'Frugal Living', value: 200, icon: '🥗' },
+                { id: 3, name: 'Car Payment', value: -400, icon: '🚗' },
+                { id: 4, name: 'Subscription Cut', value: 50, icon: '✂️' },
+                { id: 5, name: 'Extra Income', value: 300, icon: '💰' },
+                { id: 6, name: 'Dining Out', value: -150, icon: '🍽️' }
+            ]
+        };
+
+        // State Container
+        let state = {
+            varA: 50000, // Initial savings
+            varB: 7.0,   // Annual return percentage
+            isTurbo: false, // Reinvest dividends
+            stack: [] // Array to hold monthly adjustments
+        };
+
+        // --- 2. THE ENGINE LOOP: Triggers on every user interaction ---
+        function updateEngine() {
+            // A. Get latest DOM values
+            state.varA = parseFloat(document.getElementById('input-varA').value);
+            state.varB = parseFloat(document.getElementById('input-varB').value);
+            state.isTurbo = document.getElementById('toggle-turbo').checked;
+
+            // B. Run the Financial Model
+            const results = calculateModel(state);
+
+            // C. Update the UI
+            renderChart(results);
+            updateMetrics(results);
+            updateLabels();
+        }
+
+        // --- 3. THE FINANCIAL MODEL: Compound Interest Formula ---
+        function calculateModel(input) {
+            // 1. Calculate monthly addition (sum of all active items)
+            let monthlyAddition = input.stack.reduce((sum, item) => sum + item.value, 0);
+            
+            // 2. Apply investment strategy multipliers
+            let annualReturn = input.varB / 100; // Convert percentage to decimal
+            
+            // Adjust return based on risk mode
+            if (config.mode === 'low') annualReturn *= 0.8;    // Conservative
+            if (config.mode === 'high') annualReturn *= 1.2;   // Aggressive
+            if (input.isTurbo) annualReturn *= 1.1;            // Reinvest dividends boost
+            
+            // 3. Compound interest formula with monthly contributions
+            // FV = P(1 + r/n)^(nt) + PMT * (((1 + r/n)^(nt) - 1) / (r/n))
+            // Where:
+            // P = principal (initial savings)
+            // r = annual interest rate
+            // n = number of times interest is compounded per year (12 for monthly)
+            // t = time in years
+            // PMT = monthly payment (contribution)
+            
+            let xData = []; // Years
+            let yData = []; // Portfolio value
+            
+            let portfolioValue = input.varA; // Start with initial savings
+            const months = 30 * 12; // 30 years, monthly compounding
+            
+            // Calculate for each year (30 data points)
+            for (let year = 0; year <= 30; year++) {
+                xData.push(year);
+                
+                if (year === 0) {
+                    yData.push(portfolioValue);
+                    continue;
+                }
+                
+                // Calculate value at the end of this year
+                for (let month = 0; month < 12; month++) {
+                    // Apply monthly interest
+                    portfolioValue *= (1 + annualReturn / 12);
+                    // Add monthly contribution
+                    portfolioValue += monthlyAddition;
+                }
+                
+                yData.push(portfolioValue);
+            }
+            
+            // 4. Calculate Financial Independence metrics
+            const finalPortfolio = yData[yData.length - 1];
+            
+            // Calculate time to FI (4% rule: need 25x annual expenses)
+            // Assuming $40,000 annual expenses for calculation
+            const annualExpenses = 40000;
+            const fiTarget = annualExpenses * 25; // $1,000,000
+            let yearsToFI = 30;
+            
+            // Find when portfolio reaches FI target
+            for (let i = 0; i < yData.length; i++) {
+                if (yData[i] >= fiTarget) {
+                    yearsToFI = i;
+                    break;
+                }
+            }
+            
+            // Retirement readiness (percentage of FI target achieved)
+            const readiness = Math.min(100, (finalPortfolio / fiTarget) * 100);
+            
+            return {
+                x: xData,
+                y: yData,
+                portfolioValue: Math.round(finalPortfolio),
+                annualReturn: Math.round(annualReturn * 100 * 10) / 10, // Rounded to 1 decimal
+                yearsToFI: yearsToFI,
+                readiness: readiness,
+                fiTarget: fiTarget,
+                monthlyCashflow: monthlyAddition * 12 // Annualized
+            };
+        }
+
+        // --- 4. RENDERERS (Chart & Metrics) ---
+        function renderChart(data) {
+            const trace = {
+                x: data.x,
+                y: data.y,
+                mode: 'lines',
+                fill: 'tozeroy',
+                line: { color: getComputedStyle(document.documentElement).getPropertyValue('--primary'), width: 3 }
+            };
+
+            const layout = {
+                margin: { t: 20, r: 20, l: 40, b: 40 },
+                height: 350,
+                showlegend: false,
+                xaxis: { title: 'Years' },
+                yaxis: { 
+                    title: 'Portfolio Value ($)',
+                    tickformat: '$,.0f'
+                },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            };
+
+            Plotly.newPlot('chart-container', [trace], layout, {displayModeBar: false});
+        }
+
+        function updateMetrics(data) {
+            // Top Cards
+            document.getElementById('disp-metric-1').textContent = formatCurrency(data.portfolioValue);
+            document.getElementById('disp-metric-2').textContent = data.annualReturn + '%';
+
+            // Progress Bars
+            updateBar('risk', (data.yearsToFI / 30) * 100, data.yearsToFI + ' yrs');
+            updateBar('sust', data.readiness, Math.round(data.readiness) + '%');
+
+            // Recommendations logic
+            let rec = "You're on track for Financial Independence!";
+            if (data.yearsToFI > 20) rec = "Consider increasing monthly savings or aiming for higher returns.";
+            else if (data.yearsToFI > 10) rec = "Good progress! Optimize investments and reduce expenses.";
+            else if (data.yearsToFI <= 10) rec = "Excellent! You're approaching FI. Consider tax optimization.";
+            
+            if (data.monthlyCashflow < 0) rec = "Warning: Negative cashflow. Address expenses to reach FI faster.";
+            
+            document.getElementById('recommendation-text').textContent = rec;
+        }
+
+        // --- 5. UTILITIES (UI Helpers) ---
+        function updateLabels() {
+            document.getElementById('val-varA').textContent = formatCurrency(state.varA);
+            document.getElementById('val-varB').textContent = state.varB.toFixed(1);
+        }
+
+        function updateBar(id, val, text) {
+            const bar = document.getElementById('bar-' + id);
+            const lbl = document.getElementById('lbl-' + id);
+            val = Math.max(0, Math.min(100, val));
+            
+            bar.style.width = val + '%';
+            lbl.textContent = text;
+            
+            // Color Logic
+            bar.className = 'prog-fill';
+            if(id === 'risk') {
+                if(val > 80) bar.classList.add('high');
+                else if(val > 50) bar.classList.add('med');
+            } else {
+                if(val > 80) bar.classList.remove('high', 'med');
+                else if(val > 50) bar.classList.add('med');
+                else bar.classList.add('high');
+            }
+        }
+
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+            // Resize chart when switching to it
+            if(tabId === 'tab-calc') Plotly.Plots.resize('chart-container');
+        }
+
+        function setMode(mode, btn) {
+            config.mode = mode;
+            document.querySelectorAll('.radio-btn').forEach(el => el.classList.remove('selected'));
+            btn.classList.add('selected');
+            updateEngine();
+        }
+
+        function formatCurrency(amount) {
+            return amount.toLocaleString('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
+        }
+
+        // --- 6. FINANCIAL ITEMS BUILDER LOGIC ---
+        function initPresets() {
+            const grid = document.getElementById('preset-grid');
+            config.presets.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'item-card';
+                const valueClass = item.value >= 0 ? 'positive' : 'negative';
+                const valueSign = item.value >= 0 ? '+' : '';
+                div.innerHTML = `
+                    <div class="item-icon">${item.icon}</div>
+                    <div>${item.name}</div>
+                    <small class="${valueClass}">${valueSign}$${Math.abs(item.value)}/mo</small>
+                `;
+                div.onclick = () => addItem(item);
+                grid.appendChild(div);
+            });
+        }
+
+        function addItem(item) {
+            state.stack.push(item);
+            renderStack();
+            updateEngine(); // Recalculate with new items
+        }
+
+        function clearStack() {
+            state.stack = [];
+            renderStack();
+            updateEngine();
+        }
+
+        function renderStack() {
+            const list = document.getElementById('active-stack-list');
+            if (state.stack.length === 0) {
+                list.innerHTML = "No adjustments added yet.";
+                return;
+            }
+            
+            let total = state.stack.reduce((sum, item) => sum + item.value, 0);
+            const totalClass = total >= 0 ? 'positive' : 'negative';
+            const totalSign = total >= 0 ? '+' : '';
+            
+            list.innerHTML = `
+                <div style="margin-bottom: 10px;">
+                    ${state.stack.map(i => `
+                        <span style="display:inline-block; background:#e2e8f0; padding:4px 8px; border-radius:4px; margin:2px;">
+                            ${i.icon} ${i.name} (${i.value >= 0 ? '+' : ''}$${Math.abs(i.value)}/mo)
+                        </span>
+                    `).join('')}
+                </div>
+                <div style="font-weight: 600; margin-top: 10px;">
+                    Net Monthly Cashflow: 
+                    <span class="${totalClass}">${totalSign}$${Math.abs(total)}/mo</span>
+                    <br>
+                    <small style="font-weight: normal;">(${totalSign}$${Math.abs(total * 12)}/year)</small>
+                </div>
+            `;
+        }
+
+        // --- INITIALIZATION ---
+        initPresets();
+        updateEngine();
+
+    </script>
+</body>
+</html>
